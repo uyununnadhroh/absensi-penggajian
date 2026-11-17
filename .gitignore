@@ -1,0 +1,10 @@
+# macOS
+.DS_Store
+
+# Temporary files
+*.tmp
+*.log
+
+# Scripts
+setup_db.sh
+setup_db_interactive.sh

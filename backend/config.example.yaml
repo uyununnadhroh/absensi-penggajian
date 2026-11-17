@@ -1,0 +1,9 @@
+port: ":8080"
+timezone: "Asia/Jakarta"
+# XAMPP default: user root tanpa password. parseTime=true dan loc= WAJIB ada.
+dsn: "root:@tcp(localhost:3306)/absensi?parseTime=true&loc=Asia%2FJakarta&charset=utf8mb4"
+# ganti dengan string acak minimal 32 karakter
+jwt_secret: "ganti-dengan-string-acak-minimal-32-karakter"
+# alamat frontend yang boleh mengakses API
+cors_origins:
+  - "http://localhost:3000"
