@@ -224,22 +224,64 @@ type Attendance struct {
 const attCols = `id, employee_id, TO_CHAR(tanggal, 'YYYY-MM-DD'), status, jam_masuk, jam_pulang,
 	TO_CHAR(jadwal_masuk, 'HH24:MI:SS'), TO_CHAR(jadwal_pulang, 'HH24:MI:SS'), catatan, sumber`
 
-func (s *Store) scanAtt(row interface{ Scan(...any) error }) (Attendance, error) {
+
+func (s *Store) scanAtt(row interface {
+	Scan(...any) error
+}) (Attendance, error) {
 	var a Attendance
-	var in, out sql.NullTime
-	err := row.Scan(&a.ID, &a.EmployeeID, &a.Tanggal, &a.Status, &in, &out, &a.JadwalMasuk, &a.JadwalPulang, &a.Catatan, &a.Sumber)
+
+	var jamMasuk, jamPulang sql.NullTime
+	var jadwalMasuk, jadwalPulang sql.NullString
+	var catatan, sumber sql.NullString
+
+	err := row.Scan(
+		&a.ID,
+		&a.EmployeeID,
+		&a.Tanggal,
+		&a.Status,
+		&jamMasuk,
+		&jamPulang,
+		&jadwalMasuk,
+		&jadwalPulang,
+		&catatan,
+		&sumber,
+	)
+
 	if errors.Is(err, sql.ErrNoRows) {
 		return a, ErrNotFound
 	}
-	if in.Valid {
-		t := in.Time.In(s.Loc)
+
+	if err != nil {
+		return a, err
+	}
+
+	if jamMasuk.Valid {
+		t := jamMasuk.Time.In(s.Loc)
 		a.JamMasuk = &t
 	}
-	if out.Valid {
-		t := out.Time.In(s.Loc)
+
+	if jamPulang.Valid {
+		t := jamPulang.Time.In(s.Loc)
 		a.JamPulang = &t
 	}
-	return a, err
+
+	if jadwalMasuk.Valid {
+		a.JadwalMasuk = jadwalMasuk.String
+	}
+
+	if jadwalPulang.Valid {
+		a.JadwalPulang = jadwalPulang.String
+	}
+
+	if catatan.Valid {
+		a.Catatan = catatan.String
+	}
+
+	if sumber.Valid {
+		a.Sumber = sumber.String
+	}
+
+	return a, nil
 }
 
 func (s *Store) queryAtt(ctx context.Context, c q, query string, args ...any) ([]Attendance, error) {
