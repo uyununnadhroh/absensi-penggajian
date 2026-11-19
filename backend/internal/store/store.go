@@ -296,26 +296,58 @@ func nullStr(v string) any {
 	return v
 }
 
-func (s *Store) UpsertAttendance(ctx context.Context, tx *sql.Tx, a Attendance, ip string, actor int64) error {
-	_, err := s.conn(tx).ExecContext(ctx, `INSERT INTO attendance
-		(employee_id, tanggal, status, jam_masuk, jam_pulang, jadwal_masuk, jadwal_pulang, ip_masuk, catatan, sumber, diubah_oleh)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?)
-		ON CONFLICT (employee_id, tanggal) DO UPDATE SET
-		  status=EXCLUDED.status, jam_masuk=EXCLUDED.jam_masuk, jam_pulang=EXCLUDED.jam_pulang,
-		  jadwal_masuk=EXCLUDED.jadwal_masuk, jadwal_pulang=EXCLUDED.jadwal_pulang, catatan=EXCLUDED.catatan,
-		  sumber=EXCLUDED.sumber, diubah_oleh=EXCLUDED.diubah_oleh`,
+ // UpsertAttendance menyimpan satu baris absensi.
+ // Kunci unik: employee_id + tanggal.
+func (s *Store) UpsertAttendance(
+	ctx context.Context,
+	tx *sql.Tx,
+	a Attendance,
+	ip string,
+	actor int64,
+) error {
+	// Pastikan nilai jam kosong tidak dikirim sebagai string "".
+	jadwalMasuk := nullStr(strings.TrimSpace(a.JadwalMasuk))
+	jadwalPulang := nullStr(strings.TrimSpace(a.JadwalPulang))
+
+	_, err := s.conn(tx).ExecContext(ctx, `
+		INSERT INTO attendance (
+			employee_id,
+			tanggal,
+			status,
+			jam_masuk,
+			jam_pulang,
+			jadwal_masuk,
+			jadwal_pulang,
+			ip_masuk,
+			catatan,
+			sumber,
+			diubah_oleh
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT (employee_id, tanggal)
+		DO UPDATE SET
+			status = EXCLUDED.status,
+			jam_masuk = EXCLUDED.jam_masuk,
+			jam_pulang = EXCLUDED.jam_pulang,
+			jadwal_masuk = EXCLUDED.jadwal_masuk,
+			jadwal_pulang = EXCLUDED.jadwal_pulang,
+			catatan = EXCLUDED.catatan,
+			sumber = EXCLUDED.sumber,
+			diubah_oleh = EXCLUDED.diubah_oleh
+	`,
 		a.EmployeeID,
 		a.Tanggal,
 		a.Status,
 		nullTime(a.JamMasuk),
 		nullTime(a.JamPulang),
-		nullStr(a.JadwalMasuk),
-		nullStr(a.JadwalPulang),
+		jadwalMasuk,
+		jadwalPulang,
 		nullStr(ip),
 		a.Catatan,
 		a.Sumber,
 		nullID(actor),
 	)
+
 	return err
 }
 
