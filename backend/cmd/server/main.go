@@ -1,6 +1,4 @@
-// Server API Sistem Absensi & Penggajian.
-//
-//	go run ./cmd/server
+
 package main
 
 import (
@@ -18,7 +16,7 @@ import (
 	"absensi/internal/config"
 	"absensi/internal/store"
 
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func main() {
@@ -26,21 +24,27 @@ func main() {
 	if err != nil {
 		log.Fatalf("[CONFIG] %v", err)
 	}
+
 	if cfg.DSN == "" || len(cfg.JWTSecret) < 32 {
 		log.Fatal("[CONFIG] dsn wajib diisi dan jwt_secret minimal 32 karakter (lihat config.yaml)")
 	}
+
 	loc, err := time.LoadLocation(cfg.Timezone)
 	if err != nil {
 		log.Fatalf("[CONFIG] zona waktu %q: %v", cfg.Timezone, err)
 	}
-	db, err := sql.Open("mysql", cfg.DSN)
+
+	db, err := sql.Open("pgx", cfg.DSN)
 	if err != nil {
 		log.Fatalf("[DB] %v", err)
 	}
+	defer db.Close()
+
 	db.SetMaxOpenConns(20)
 	db.SetConnMaxLifetime(5 * time.Minute)
+
 	if err := db.Ping(); err != nil {
-		log.Fatalf("[DB] tidak bisa terhubung (cek MySQL sudah jalan & dsn benar): %v", err)
+		log.Fatalf("[DB] tidak bisa terhubung ke PostgreSQL Supabase: %v", err)
 	}
 
 	srv := &api.Server{
@@ -49,7 +53,12 @@ func main() {
 		Loc:     loc,
 		Origins: cfg.CORSOrigins,
 	}
-	hs := &http.Server{Addr: cfg.Port, Handler: srv.Routes(), ReadHeaderTimeout: 10 * time.Second}
+
+	hs := &http.Server{
+		Addr:              cfg.Port,
+		Handler:           srv.Routes(),
+		ReadHeaderTimeout: 10 * time.Second,
+	}
 
 	go func() {
 		log.Printf("[HTTP] berjalan di %s", cfg.Port)
@@ -57,10 +66,15 @@ func main() {
 			log.Fatalf("[HTTP] %v", err)
 		}
 	}()
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_ = hs.Shutdown(ctx)
+
+	if err := hs.Shutdown(ctx); err != nil {
+		log.Printf("[HTTP] shutdown: %v", err)
+	}
 }
