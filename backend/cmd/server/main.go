@@ -22,11 +22,17 @@ import (
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("[CONFIG] %v", err)
+		log.Fatalf("[CONFIG] gagal membaca konfigurasi: %v", err)
 	}
 
+	// Pemeriksaan konfigurasi tanpa menampilkan nilai rahasia.
 	if cfg.DSN == "" || len(cfg.JWTSecret) < 32 {
-		log.Fatal("[CONFIG] dsn wajib diisi dan jwt_secret minimal 32 karakter (lihat config.yaml)")
+		log.Printf(
+			"[CONFIG DEBUG] DSN terisi: %t, panjang JWT_SECRET: %d",
+			cfg.DSN != "",
+			len(cfg.JWTSecret),
+		)
+		log.Fatal("[CONFIG] konfigurasi belum valid")
 	}
 
 	loc, err := time.LoadLocation(cfg.Timezone)
@@ -36,16 +42,19 @@ func main() {
 
 	db, err := sql.Open("pgx", cfg.DSN)
 	if err != nil {
-		log.Fatalf("[DB] %v", err)
+		log.Fatalf("[DB] gagal membuka koneksi PostgreSQL: %v", err)
 	}
 	defer db.Close()
 
 	db.SetMaxOpenConns(20)
+	db.SetMaxIdleConns(5)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
 	if err := db.Ping(); err != nil {
 		log.Fatalf("[DB] tidak bisa terhubung ke PostgreSQL Supabase: %v", err)
 	}
+
+	log.Println("[DB] koneksi PostgreSQL berhasil")
 
 	srv := &api.Server{
 		Store:   &store.Store{DB: db, Loc: loc},
@@ -61,9 +70,11 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("[HTTP] berjalan di %s", cfg.Port)
-		if err := hs.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("[HTTP] %v", err)
+		log.Printf("[HTTP] server berjalan di %s", cfg.Port)
+
+		if err := hs.ListenAndServe(); err != nil &&
+			!errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("[HTTP] server gagal: %v", err)
 		}
 	}()
 
@@ -71,10 +82,15 @@ func main() {
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		10*time.Second,
+	)
 	defer cancel()
 
 	if err := hs.Shutdown(ctx); err != nil {
 		log.Printf("[HTTP] shutdown: %v", err)
 	}
+
+	log.Println("[HTTP] server berhenti")
 }
