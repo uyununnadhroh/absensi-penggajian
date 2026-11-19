@@ -296,7 +296,6 @@ func nullStr(v string) any {
 	return v
 }
 
-// UpsertAttendance menyimpan satu baris absensi (kunci employee_id + tanggal).
 func (s *Store) UpsertAttendance(ctx context.Context, tx *sql.Tx, a Attendance, ip string, actor int64) error {
 	_, err := s.conn(tx).ExecContext(ctx, `INSERT INTO attendance
 		(employee_id, tanggal, status, jam_masuk, jam_pulang, jadwal_masuk, jadwal_pulang, ip_masuk, catatan, sumber, diubah_oleh)
@@ -305,8 +304,18 @@ func (s *Store) UpsertAttendance(ctx context.Context, tx *sql.Tx, a Attendance, 
 		  status=EXCLUDED.status, jam_masuk=EXCLUDED.jam_masuk, jam_pulang=EXCLUDED.jam_pulang,
 		  jadwal_masuk=EXCLUDED.jadwal_masuk, jadwal_pulang=EXCLUDED.jadwal_pulang, catatan=EXCLUDED.catatan,
 		  sumber=EXCLUDED.sumber, diubah_oleh=EXCLUDED.diubah_oleh`,
-		a.EmployeeID, a.Tanggal, a.Status, nullTime(a.JamMasuk), nullTime(a.JamPulang), a.JadwalMasuk, a.JadwalPulang,
-		nullStr(ip), a.Catatan, a.Sumber, nullID(actor))
+		a.EmployeeID,
+		a.Tanggal,
+		a.Status,
+		nullTime(a.JamMasuk),
+		nullTime(a.JamPulang),
+		nullStr(a.JadwalMasuk),
+		nullStr(a.JadwalPulang),
+		nullStr(ip),
+		a.Catatan,
+		a.Sumber,
+		nullID(actor),
+	)
 	return err
 }
 
