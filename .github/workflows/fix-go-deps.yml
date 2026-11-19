@@ -1,0 +1,39 @@
+
+name: Fix Go Dependencies
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix-dependencies:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+
+      - name: Generate checksums
+        working-directory: backend
+        run: go mod tidy
+
+      - name: Verify build
+        working-directory: backend
+        run: go build ./cmd/server
+
+      - name: Save changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/go.mod backend/go.sum
+          if ! git diff --cached --quiet; then
+            git commit -m "Fix Go dependency checksums"
+            git push
+          fi
