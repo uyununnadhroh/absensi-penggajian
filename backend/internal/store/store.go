@@ -271,14 +271,15 @@ func (s *Store) OpenAttendance(ctx context.Context, tx *sql.Tx, empID int64, sin
 }
 
 func (s *Store) AttendanceByDate(ctx context.Context, day string) ([]Attendance, error) {
-	return s.queryAtt(ctx, s.DB, `WHERE tanggal = ?`, day)
+	return s.queryAtt(ctx, s.conn(nil), `WHERE tanggal = ?`, day)
 }
 
 func (s *Store) AttendanceRange(ctx context.Context, empID int64, from, to string) ([]Attendance, error) {
 	if empID == 0 {
-		return s.queryAtt(ctx, s.DB, `WHERE tanggal BETWEEN ? AND ? ORDER BY tanggal`, from, to)
+		return s.queryAtt(ctx, s.conn(nil), `WHERE tanggal BETWEEN ? AND ? ORDER BY tanggal`, from, to)
 	}
-	return s.queryAtt(ctx, s.DB, `WHERE employee_id = ? AND tanggal BETWEEN ? AND ? ORDER BY tanggal`, empID, from, to)
+
+	return s.queryAtt(ctx, s.conn(nil), `WHERE employee_id = ? AND tanggal BETWEEN ? AND ? ORDER BY tanggal`, empID, from, to)
 }
 
 func nullTime(t *time.Time) any {
